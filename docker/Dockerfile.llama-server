@@ -1,0 +1,75 @@
+# =====================================================================
+# llama-server (llama.cpp + CUDA) — multi-stage build
+#
+# Stage 1: nvidia cuda devel (nvcc 포함) → llama.cpp cmake build
+# Stage 2: nvidia cuda runtime → 빌드된 binary 만 복사
+#
+# Build:
+#   docker build -f Dockerfile.llama-server -t ai-console-llama-server:latest .
+#
+# Run (직접):
+#   docker run --rm --gpus all -p 8181:8181 \
+#     -v /data/models:/models:ro \
+#     ai-console-llama-server:latest \
+#     --model /models/gpt-oss-20b-GGUF/gpt-oss-20b-F16.gguf \
+#     --host 0.0.0.0 --port 8181 -ngl 99
+# =====================================================================
+
+ARG CUDA_VER=12.8.1
+
+# === Stage 1: builder ===
+FROM nvidia/cuda:${CUDA_VER}-cudnn-devel-ubuntu22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake git ca-certificates curl libcurl4-openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# CUDA driver API (libcuda.so) 는 host driver 제공. devel image 의 stub 으로 link.
+# llama.cpp 의 ggml-cuda 가 cuMem*/cuDevice* 같은 driver API 직접 사용하므로 link 필요.
+RUN echo "/usr/local/cuda/lib64/stubs" > /etc/ld.so.conf.d/cuda-stubs.conf \
+    && ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 \
+    && ldconfig
+ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs:${LIBRARY_PATH:-} \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:${LD_LIBRARY_PATH:-}
+
+WORKDIR /build
+
+# 우리 repo 의 vendored llama.cpp 소스 복사
+COPY llama-cpp-python/vendor/llama.cpp /build/llama.cpp
+
+# cmake build (CUDA arch 89 = L40S / RTX 4090, 90 = H100, 86 = A10/RTX 30, 80 = A100)
+ARG CUDA_ARCHS="80;86;89;90"
+RUN cmake -B /build/build -S /build/llama.cpp \
+        -DGGML_CUDA=ON \
+        -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHS}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLAMA_BUILD_SERVER=ON \
+        -DLLAMA_BUILD_TESTS=OFF \
+        -DLLAMA_BUILD_EXAMPLES=OFF \
+        -DCMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs \
+        -DCMAKE_EXE_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs" \
+        -DCMAKE_SHARED_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs" \
+    && cmake --build /build/build --config Release --target llama-server -j $(nproc)
+
+# === Stage 2: runtime ===
+FROM nvidia/cuda:${CUDA_VER}-cudnn-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgomp1 libcurl4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# binary + 의존 .so 복사
+COPY --from=builder /build/build/bin/llama-server /usr/local/bin/llama-server
+COPY --from=builder /build/build/bin/*.so /usr/local/lib/
+RUN ldconfig
+
+EXPOSE 8181
+
+# 모델은 -v /data/models:/models 마운트로 주입.
+# docker-compose 의 command 로 모델 경로/포트/n_ctx 등 주입.
+ENTRYPOINT ["llama-server"]
+CMD ["--help"]

@@ -1,0 +1,24 @@
+type: qna
+name: console-guide-install-001
+enabled: true
+question: ai-console은 어떻게 설치하나요?
+answer: |
+  리포를 클론하고 설치 스크립트 한 번이면 됩니다:
+  ```bash
+  git clone <repo-url> && cd ai-console
+  ./install.sh
+  ```
+  설치기가 HW(VRAM·램)를 감지해 티어를 판정하고, models.yaml에서 프리셋을 제안한 뒤
+  의존성·llama.cpp 빌드·Qdrant·모델 다운로드·config.ini 생성까지 자동으로 진행해요.
+
+  유용한 옵션:
+  - `./install.sh --preset llama31-8b-q4 --yes` : 비대화형 설치
+  - `./install.sh --dry-run` : 계획만 보고 설치 안 함
+  - `./install.sh --no-model` : 모델은 나중에 받기
+
+  자세한 경로별 설명은 docs/install-paths.md 문서를 참고하세요.
+aliases:
+- 설치 방법 알려줘
+- 어떻게 시작하나요
+- install.sh 사용법
+- 설치 옵션에는 뭐가 있나요

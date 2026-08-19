@@ -1,0 +1,21 @@
+type: qna
+name: console-guide-knowledge-001
+enabled: true
+question: 지식(RAG 문서)은 어떻게 업로드하나요?
+answer: |
+  knowledge YAML을 bulk API로 올리면 BGE-M3 임베딩을 거쳐 Qdrant에 적재돼요:
+  ```bash
+  KEY=$(head -1 api_keys/*.key)
+  for f in cartridges/my-domain/knowledge/*.yaml; do
+    curl -sk -X POST https://localhost:8443/api/ai/prompts/bulk \
+      -H "Authorization: Bearer $KEY" \
+      -F "files=@$f"
+  done
+  ```
+  문서 형식은 두 종류예요 — qna(질문·답변·aliases)와 action(질문·cot 생성규칙·정답 예시).
+  스펙은 cartridges/_template/knowledge/README.md에 있어요.
+aliases:
+- RAG 문서 올리는 법
+- bulk 업로드 사용법
+- 지식 채우는 방법
+- qna와 action 차이

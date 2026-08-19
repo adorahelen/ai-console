@@ -1,0 +1,149 @@
+name: CI
+
+# 여기서 도는 것은 전부 "네트워크·GPU·설치 없이 몇 초 안에 끝나는" 검사다.
+# 엔진 동작(프롬프트 배선·RAG 종단·모델 응답)은 CI가 잡지 못한다 — docs/testing-guide.md 의
+# 실기동 검증이 그 몫이다. CI 통과를 "동작한다"로 읽지 말 것.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: 파이썬 문법 / Python syntax
+        run: python3 -m py_compile *.py scripts/*.py utils/*.py
+
+      - name: 셸 문법 / Shell syntax
+        run: bash -n install.sh run.sh build_package.sh scripts/*.sh docker/*.sh
+
+      - name: 설치기 완주 (dry-run — 아무것도 설치·다운로드하지 않는다)
+        run: ./install.sh --dry-run --yes --preset gemma4-12b-q4
+
+      - name: 설치기 완주 — inprocess 경로 (--preset 전용 프리셋)
+        run: ./install.sh --dry-run --yes --preset llama31-8b-q4
+
+      - name: 프리셋 파서 — 전 티어 / Preset parser across all tiers
+        # install.sh 가 venv 前 시스템 python 으로 부르는 경로라 stdlib 만 쓴다.
+        # 티어별 CANDIDATES 와, 각 후보의 SELECTED 상세가 모두 나와야 한다.
+        run: |
+          set -euo pipefail
+          for tier in cpu-only gpu-8gb gpu-16gb gpu-24gb-plus api; do
+            out=$(python3 scripts/parse_preset.py "$tier")
+            echo "$out" | head -1 | grep -q '^CANDIDATES$' || { echo "✗ $tier: CANDIDATES 헤더 없음"; exit 1; }
+            presets=$(echo "$out" | tail -n +2 | cut -d'|' -f2)
+            [ -n "$presets" ] || { echo "✗ $tier: 후보 0건"; exit 1; }
+            for p in $presets; do
+              python3 scripts/parse_preset.py "$tier" "$p" | grep -q '^SELECTED$' \
+                || { echo "✗ $tier/$p: SELECTED 상세 없음"; exit 1; }
+              echo "  ✓ $tier / $p"
+            done
+          done
+
+      - name: HW → 모델 매핑 / HW-to-model mapping matches README
+        # README 의 "내 HW엔 뭐가 깔리나" 표를 그대로 고정한다. 표와 실제 동작이
+        # 갈라지면 여기서 깨진다 — 티어 임계값·min_vram_gb·min_ram_gb 어느 쪽을 바꿔도.
+        run: |
+          set -euo pipefail
+          tier() {
+            if   [ "$1" -ge 24 ]; then echo gpu-24gb-plus
+            elif [ "$1" -ge 12 ]; then echo gpu-16gb
+            elif [ "$1" -ge 6  ]; then echo gpu-8gb
+            else echo cpu-only; fi
+          }
+          # VRAM_GB RAM_GB 기대_프리셋   (README 표 1~11행. ''=후보 0건이어야 함)
+          while read -r v r want; do
+            [ -n "$v" ] || continue
+            t=$(tier "$v")
+            got=$(python3 scripts/parse_preset.py "$t" --vram "$v" --ram "$r" | sed -n '2p' | cut -d'|' -f2)
+            if [ "$got" != "${want#-}" ]; then
+              echo "✗ VRAM ${v}GB / RAM ${r}GB ($t): 기대 '${want#-}' → 실제 '$got'"; exit 1
+            fi
+            echo "  ✓ VRAM ${v}GB / RAM ${r}GB ($t) → ${got:-<후보 0건>}"
+          done <<'ROWS'
+          0 4 -
+          0 8 gemma4-e2b-q4
+          0 16 gemma4-e4b-q4
+          0 32 gemma4-e4b-q4
+          7 16 gemma4-e4b-q4
+          12 16 gemma4-12b-q4
+          15 16 gemma4-12b-q4
+          15 32 gemma4-12b-q4
+          23 32 gemma4-12b-q4
+          24 32 gemma4-26b-full
+          31 64 gemma4-26b-full
+          ROWS
+          echo "✓ README 표 11행 일치"
+
+      - name: 카트리지 검증 / Cartridge validation
+        # _template 은 사용자가 채우는 골격이라 슬롯 파일이 일부러 비어 있다 — 검증 대상 아님.
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          import os, sys, cartridge_validate as cv
+          bad = 0
+          for name in sorted(os.listdir("cartridges")):
+              path = os.path.join("cartridges", name)
+              if name.startswith("_") or not os.path.isdir(path):
+                  continue
+              rep = cv.validate_cartridge(path)
+              print(f"{path} → errors {rep.n_errors} / warnings {rep.n_warnings}")
+              for item in rep.as_dict(path)["checks"]:
+                  if item["status"] != "ok":
+                      print(f"   {item['status']}: {item['label']} — {item['detail']}")
+              bad += rep.n_errors
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: 시크릿 커밋 여부 / No secrets committed
+        # .gitignore 를 git add -f 로 우회한 경우를 잡는다.
+        run: |
+          set -euo pipefail
+          hits=$(git ls-files | grep -E '(^|/)config\.ini$|^api_keys/|^ssl/|\.key$|\.pem$' || true)
+          if [ -n "$hits" ]; then echo "✗ 추적되면 안 되는 파일:"; echo "$hits"; exit 1; fi
+          if git grep -lE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' -- . >/dev/null 2>&1; then
+            echo "✗ 개인키 블록이 추적 파일에 있습니다"; git grep -lE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' -- .; exit 1
+          fi
+          echo "✓ 0건"
+
+      - name: 문서 링크 무결성 / Internal doc links resolve
+        # 리포 안 상대경로 마크다운 링크가 실제 파일을 가리키는지. 외부 URL 은 검사하지 않는다.
+        run: |
+          set -euo pipefail
+          bad=0
+          while IFS= read -r md; do
+            while IFS= read -r target; do
+              [ -n "$target" ] || continue
+              case "$target" in http*|"#"*|mailto:*) continue ;; esac
+              resolved="$(dirname "$md")/${target%%#*}"
+              [ -e "$resolved" ] || { echo "✗ $md → $target"; bad=1; }
+            done < <(grep -oE '\]\([^)]+\)' "$md" | sed -E 's/^\]\(//; s/\)$//')
+          done < <(git ls-files '*.md')
+          [ "$bad" = 0 ] || exit 1
+          echo "✓ 깨진 내부 링크 0건"
+
+      - name: 영/한 문서 쌍 / Every doc has both languages
+        # 한국어가 원본, 영문이 사본. 한쪽만 있는 문서는 독자를 오도한다(DEVELOPMENT.md 작업 규칙).
+        # 이 검사는 "짝이 있는가"만 본다 — 내용이 실제로 동기화됐는지는 사람이 봐야 한다.
+        run: |
+          set -euo pipefail
+          bad=0
+          for f in docs/*.md; do
+            case "$f" in *.en.md) continue ;; esac
+            [ -f "${f%.md}.en.md" ] || { echo "✗ $f — 영문판(${f%.md}.en.md) 없음"; bad=1; }
+          done
+          for f in docs/*.en.md; do
+            [ -f "${f%.en.md}.md" ] || { echo "✗ $f — 한국어 원본 없음"; bad=1; }
+          done
+          [ "$bad" = 0 ] || exit 1
+          echo "✓ 전 문서 영/한 쌍 존재"

@@ -1,0 +1,76 @@
+# 민감 정보
+config.ini
+.env
+.env.*
+!.env.example
+config.ini.gpt
+config_gpt.ini
+api_keys/
+ssl/
+utils/.encryption_key
+
+# 불필요 폴더
+_archive/
+qa_embeddings/
+qa_embeddings_gpt/
+logs/
+utils/test_only/
+
+# 벤치마크
+benchmark/
+
+# Gemma 4 전용 llama.cpp 커스텀 빌드 (907MB, /data/ai-agent/llama.cpp-gemma4)
+llama.cpp-gemma4/
+llama-cpp-python/
+
+# 다운로드 대상 모델 (SETUP.md 참조)
+models/
+
+# 캐시 (재생성 가능)
+cache/
+tiktoken_cache/
+
+
+# 대용량 백업
+*.tar.gz
+*.tar
+*.zip
+
+# 로컬 파일 백업 (수동 *.bak_* 사본)
+*.bak_*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 빌드/배포 산출물
+dist/
+
+# 오프라인 패키지 수집 결과
+offline/
+
+# 설치 상태 (install.sh 의 STATE_DIR — 하이픈이다. 예전 항목은 언더스코어라 안 걸렸다)
+.install-state/
+.install_state/
+
+# 환경별 설정 (.example 만 commit)
+shell/install.conf
+shell-legacy/install.conf
+
+# 로그
+*.log
+
+# Docker compose 배포 산출물 (docker/ 폴더)
+docker/.env
+docker/config.ini.docker
+docker/utils-docker/
+docker/logs/
+docker/cache/
+docker/api_keys/*
+docker/ssl/selfsigned.*
+
+# install.sh 산출물
+.venv/
+qdrant/
+ssl/selfsigned.*

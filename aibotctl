@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# aibot_cli.py 진입점 (사용자 친화 alias)
+#
+# install.sh가 ~/.local/bin 에 심링크를 걸므로 어디서나 호출된다. 그래서:
+#  - readlink -f 로 심링크를 따라가 리포 루트를 찾고
+#  - venv 파이썬을 쓰며(click·requests는 시스템 python에 없다)
+#  - 리포 루트로 cd 한다 — config [prompts] 배선이 cwd 기준 상대경로라
+#    (cartridge_mount: relpath(cart, getcwd())) 다른 데서 실행하면 배선이 틀어진다.
+set -e
+SELF="$(readlink -f "${BASH_SOURCE[0]:-$0}")"
+ROOT="$(dirname "$SELF")"
+PY="$ROOT/.venv/bin/python"
+[ -x "$PY" ] || PY="$(command -v python3)"
+cd "$ROOT"
+exec "$PY" "$ROOT/aibot_cli.py" "$@"

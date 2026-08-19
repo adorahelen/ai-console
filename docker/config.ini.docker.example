@@ -1,0 +1,161 @@
+[openai]
+api_key =
+
+[bedrock]
+aws_region = us-east-1
+# Claude on Bedrock — Opus 4.7 (실제 model id 는 list-foundation-models 로 확정)
+claude_model_id = anthropic.claude-opus-4-7-20260101-v1:0
+claude_translate_model_id = anthropic.claude-haiku-4-5-20251001-v1:0
+claude_max_tokens = 4096
+claude_temperature = 0.01
+# STS 임시 자격증명 (비면 boto3 default chain / IAM role)
+# aws_access_key_id =
+# aws_secret_access_key =
+# aws_session_token =
+
+[paths]
+rfp_docs_dir = docs/rfp
+rfp_embedding_dir = qa_embeddings/rfp
+aibot_docs_dir = docs/aibot/yaml/
+system_docs_dir = docs/system/yaml/
+aibot_embedding_dir = qa_embeddings/aibot
+system_embedding_dir = qa_embeddings/system
+prompt_dir = prompts
+api_keys_dir = api_keys
+local_llama_model_path = /models/meta-llama-3.1-8b-instruct-q4_k_m.gguf
+gpt_oss_model_path = /models/gpt-oss-20b-GGUF/gpt-oss-20b-F16.gguf
+qwen_model_path = /models/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf
+
+[prompts]
+gpt = ./prompts/gpt_prompt.txt
+gpt_oss = ./prompts/gpt_oss_prompt.yaml
+llama = ./prompts/llama_prompt.yaml
+qwen = ./prompts/qwen_prompt.yaml
+intent = ./prompts/system/intent_classification.yaml
+qna_cve = ./prompts/system/qna_cve.yaml
+action = ./prompts/system/action.yaml
+plan = ./prompts/system/plan.yaml
+playbook = ./prompts/system/playbook.yaml
+qna_gpt = ./prompts/system/qna_gpt.yaml
+action_gpt = ./prompts/system/action_gpt.yaml
+plan_gpt = ./prompts/system/plan_gpt.yaml
+llama_edit = ./prompts/llama_prompt_bak.yaml
+focus_query = ./prompts/system/action.yaml
+slack = ./prompts/system/qna_gpt_slack.yaml
+post_action = ./prompts/system/post_action.yaml
+ticket_memo = ./prompts/system/ticket_memo.yaml
+title = ./prompts/system/title.yaml
+claude = ./prompts/system/qna_claude.yaml
+qna_claude = ./prompts/system/qna_claude.yaml
+action_claude = ./prompts/system/action_claude.yaml
+plan_claude = ./prompts/system/plan_claude.yaml
+title_claude = ./prompts/system/title_claude.yaml
+
+[model]
+model = gpt-oss
+model_name = gpt-5.4-mini
+temperature = 1.0
+max_tokens = 1024
+reasoning_effort = low
+chunk_size = 1000
+chunk_overlap = 200
+
+[search]
+search_strategy = basic
+max_parallel_searches = 4
+cache_enabled = False
+cache_expiry_seconds = 3600
+search_timeout_seconds = 10
+
+[search_weights]
+filename_question = 0.35
+exact_keyword = 0.25
+semantic_vector = 0.10
+translated_search = 0.05
+knowledge_graph = 0.15
+contextual_expansion = 0.10
+
+[option]
+use_hnsw = False
+focus = query
+response = complete
+translation = True
+user_intent_prompt = True
+show_metadata = False
+
+[regression]
+intent_analysis = docs/regression/intent_analysis/intent_question.txt
+validation = docs/regression/validation
+
+[validation]
+base_url = https://localhost:4443
+api_key =
+llama_val_action = ./prompts/validation/llama_val_action.yaml
+llama_val_qna = ./prompts/validation/llama_val_qna.yaml
+gpt_val = ./prompts/validation/gpt_val.yaml
+
+[server]
+port = 5443
+ssl_certfile = ./ssl/selfsigned.crt
+ssl_keyfile = ./ssl/selfsigned.key
+saas_mode = False
+
+[embedding]
+use_bge_mode = True
+bge_model_path = /models/bge-m3
+
+[database]
+use_db_mode = True
+url = mariadb
+port = 3306
+user = agent
+password = CHANGE_ME_strong_db_password
+database = agent
+
+[qdrant]
+use_server = True
+host = qdrant
+port = 6333
+timeout = 300
+
+[sync]
+enabled = False
+main_server_url = http://main-server:8000
+api_key = 
+interval_seconds = 300
+
+[llama_server]
+use_server_mode = True
+external_server = True
+binary_path = /data/ai-agent/llama-cpp-python/vendor/llama.cpp/build/bin/llama-server
+host = llama-main
+port = 8181
+n_gpu_layers = 99
+n_ctx = 393216
+n_parallel = 3
+n_batch = 2048
+
+[llama_server_translation]
+use_server_mode = True
+external_server = True
+binary_path = /data/ai-agent/llama-cpp-python/vendor/llama.cpp/build/bin/llama-server
+host = llama-translation
+port = 8181
+n_gpu_layers = 99
+n_ctx = 16384
+n_parallel = 4
+n_batch = 512
+
+[slack]
+enabled = False
+bot_token =
+app_token =
+
+[pii]
+# LLM 입력 전 PII 치환 게이트 (aibot_PII, 현재 gemma 핸들러). 의존성: presidio + spacy(en_core_web_lg)
+pii_mode = True
+# 치환 전/후 콘솔 출력(검증용). 운영은 False 권장.
+verbose = False
+# True=응답 토큰을 원본으로 복원(양방향) / False=복원 안 함(단방향)
+restore = True
+

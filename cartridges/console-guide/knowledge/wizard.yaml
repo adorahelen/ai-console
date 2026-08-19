@@ -1,0 +1,13 @@
+type: qna
+name: console-guide-wizard-001
+enabled: true
+question: 온보딩 위저드는 어떻게 사용하나요?
+answer: |
+  콘솔 기동 후 브라우저에서 `https://localhost:8443/wizard`에 접속하세요.
+  에이전트의 캐릭터를 자연어로 서술하고 지식을 붙여넣으면, 내부 포맷(프롬프트·지식 YAML)
+  변환은 설치된 LLM이 대신해요. 파일을 직접 만질 필요 없이 카트리지 저장까지 클릭으로 끝납니다.
+  파일 기반으로 전부 통제하고 싶다면 docs/build-your-own-agent.md의 수제작 경로를 쓰세요.
+aliases:
+- 위저드가 뭔가요
+- 클릭으로 에이전트 만들기
+- wizard 접속 주소

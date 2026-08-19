@@ -1,0 +1,168 @@
+# =====================================================================
+# ai-console 운영 스택 — app + mariadb + qdrant
+#
+# 사용법:
+#   1) 환경 변수 파일 작성:
+#        cp .env.example .env
+#        편집: MARIADB_*, MODELS_DIR, ...
+#   2) 모델 디렉토리 준비:
+#        MODELS_DIR=/path/to/models 에 bge-m3/, gpt-oss-20b-GGUF/, *.gguf 배치
+#   3) 빌드 + 실행:
+#        docker compose build
+#        docker compose up -d
+#   4) 로그:
+#        docker compose logs -f app
+#
+# 사전 요구:
+#   - host 에 NVIDIA driver 535+ (cu128) 또는 575+ (cu130) install
+#   - docker + nvidia-container-toolkit install (host 한 번만)
+#   → 자동: sudo bash install_host_prereqs.sh -y  (Ubuntu 20/22, RHEL 9)
+# =====================================================================
+
+services:
+
+  # -------------------------------------------------------------------
+  # MariaDB — 관계형 DB
+  # -------------------------------------------------------------------
+  mariadb:
+    image: mariadb:11
+    container_name: ai-console-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?.env에 MARIADB_ROOT_PASSWORD를 설정하세요}
+      MARIADB_DATABASE: ${MARIADB_DB_NAME:-agent}
+      MARIADB_USER: ${MARIADB_DB_USER:-agent}
+      MARIADB_PASSWORD: ${MARIADB_DB_PASSWORD:?.env에 MARIADB_DB_PASSWORD를 설정하세요}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # -------------------------------------------------------------------
+  # Qdrant — 벡터 DB
+  # -------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    container_name: ai-console-qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - qdrant_snapshots:/qdrant/snapshots
+    # 기본 6333(REST) / 6334(gRPC) 만 노출 — 외부 접근 필요시 ports 추가
+
+  # -------------------------------------------------------------------
+  # llama-main: GPT-OSS 추론 (메인 LLM, port 8181)
+  # -------------------------------------------------------------------
+  llama-main:
+    build:
+      # context = repo root (../ from docker/), dockerfile path 명시
+      context: ..
+      dockerfile: docker/Dockerfile.llama-server
+      args:
+        CUDA_VER:   ${CUDA_VER:-12.8.1}
+        CUDA_ARCHS: ${CUDA_ARCHS:-80;86;89;90;120}
+    image: ai-console-llama-server:${AI_CONSOLE_TAG:-cu128}
+    container_name: ai-console-llama-main
+    restart: unless-stopped
+    command: >
+      --model /models/gpt-oss-20b-GGUF/gpt-oss-20b-F16.gguf
+      --host 0.0.0.0 --port 8181
+      -ngl 99 -c 393216 -np 3 -b 2048
+    volumes:
+      - ${MODELS_DIR:-/service/models}:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # -------------------------------------------------------------------
+  # llama-translation: 번역 전용 (Llama 8B Q4_K_M, port 8181 in-container)
+  # -------------------------------------------------------------------
+  llama-translation:
+    image: ai-console-llama-server:${AI_CONSOLE_TAG:-cu128}
+    container_name: ai-console-llama-translation
+    restart: unless-stopped
+    depends_on:
+      - llama-main
+    command: >
+      --model /models/meta-llama-3.1-8b-instruct-q4_k_m.gguf
+      --host 0.0.0.0 --port 8181
+      -ngl 99 -c 16384 -np 4 -b 512
+    volumes:
+      - ${MODELS_DIR:-/service/models}:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # -------------------------------------------------------------------
+  # 앱 (FastAPI + LLM/RAG 파이프라인) — GPU 사용
+  # -------------------------------------------------------------------
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        CUDA_VER:   ${CUDA_VER:-12.8.1}
+        TORCH_CUDA: ${TORCH_CUDA:-cu128}
+    image: ai-console:${AI_CONSOLE_TAG:-cu128}
+    container_name: ai-console-app
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    environment:
+      # config.ini 의 hardcoded localhost 들을 docker compose service name 으로 override.
+      # config_utils.py 가 환경 변수 우선시한다고 가정 (필요 시 별도 fix 사이클).
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: 3306
+      MARIADB_DB_NAME: ${MARIADB_DB_NAME:-agent}
+      MARIADB_DB_USER: ${MARIADB_DB_USER:-agent}
+      MARIADB_DB_PASSWORD: ${MARIADB_DB_PASSWORD:?.env에 MARIADB_DB_PASSWORD를 설정하세요}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      # 모델 경로 (volume mount 와 일치)
+      GPT_OSS_MODEL_PATH: /models/gpt-oss-20b-GGUF/gpt-oss-20b-F16.gguf
+      BGE_M3_MODEL_PATH: /models/bge-m3
+      LLAMA_TRANSLATION_MODEL_PATH: /models/meta-llama-3.1-8b-instruct-q4_k_m.gguf
+    ports:
+      # config.ini 의 [server] port 가 5443. 외부에선 SERVER_PORT(default 19443) 로 접근.
+      - "${SERVER_PORT:-19443}:5443"
+    volumes:
+      # 모델: read-only 마운트 (host 디렉토리 그대로)
+      - ${MODELS_DIR:-/service/models}:/models:ro
+      # config.ini : container 용 plain-text 버전 마운트.
+      # rw: 첫 시작 시 config_utils 가 plain text 값을 ENC: 로 자동 변환 후 write. 한 번 변환되면 그대로.
+      - ./config.ini.docker:/app/config.ini
+      # .encryption_key 만 host 의 utils-docker/ 에서 file-mount (container utils/ 디렉토리 통째 가리지 않게)
+      - ./utils-docker/.encryption_key:/app/utils/.encryption_key
+      # api_keys 등 민감 디렉토리는 docker/ 폴더 안에서 운영 (배포 시 같이 옮겨짐)
+      - ./api_keys:/app/api_keys:ro
+      # SSL self-signed cert (uvicorn HTTPS 용)
+      - ./ssl:/app/ssl:ro
+      # logs / cache : runtime 산출물 (rw, docker/ 안 별도)
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  mariadb_data:
+  qdrant_data:
+  qdrant_snapshots:

@@ -1,0 +1,13 @@
+type: qna
+name: console-guide-nodb-001
+enabled: true
+question: MariaDB 없이 돌릴 수 있나요?
+answer: |
+  네. DB는 대화 로깅 전용이라 config.ini에서 `[database] use_db_mode = False`로 두면
+  완전히 우회돼요. 필수 의존성은 Qdrant와 BGE-M3(임베딩)뿐입니다.
+  인증도 DB 없이 file 모드로 동작해요 — api_keys/ 디렉토리의 *.key 파일이 유효한 키입니다.
+aliases:
+- DB 필수인가요
+- 데이터베이스 없이 실행
+- use_db_mode가 뭔가요
+- 최소 의존성이 뭔가요

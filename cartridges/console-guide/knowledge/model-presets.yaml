@@ -1,0 +1,20 @@
+type: qna
+name: console-guide-models-001
+enabled: true
+question: 내 하드웨어에 맞는 모델은 어떻게 고르나요?
+answer: |
+  models.yaml이 HW 티어별 프리셋의 단일 소스예요. 티어는 다섯 개:
+  - `cpu-only` (GPU 없음, 램 16GB): Llama-3.1-8B Q4 — 느리지만 동작
+  - `gpu-8gb` (예: RTX 4060): Llama-3.1-8B Q4
+  - `gpu-16gb` (예: RTX 5070 Ti): GPT-OSS-20B 또는 Gemma-4-26B MoE 오프로드
+  - `gpu-24gb+` (예: RTX 4090/5090): Gemma-4-26B 풀 GPU
+  - `api` (GPU 불필요): OpenAI·Claude 핸들러
+
+  install.sh가 감지 결과로 자동 제안하지만, `--preset <키>`로 직접 지정할 수도 있어요.
+  설치 후 모델을 바꾸려면 config.ini [model] 값과 llama-server 설정을 프리셋에 맞게 조정합니다.
+aliases:
+- 모델 추천해줘
+- 어떤 모델을 써야 하나요
+- 티어가 뭔가요
+- GPU 없이도 되나요
+- 프리셋 바꾸는 법

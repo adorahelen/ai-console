@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ai-console 온보딩 위저드</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --dim:#94a3b8;
+          --acc:#38bdf8; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,sans-serif;
+         max-width:860px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:22px; margin-bottom:4px; } h1 span{color:var(--acc);}
+  .sub { color:var(--dim); font-size:13px; margin-bottom:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:20px; margin-bottom:16px; }
+  .card h2 { font-size:16px; margin-bottom:12px; }
+  .card h2 .step { color:var(--acc); margin-right:6px; }
+  label { display:block; font-size:13px; color:var(--dim); margin:10px 0 4px; }
+  input[type=text], input[type=password], textarea, select {
+    width:100%; background:#0b1220; color:var(--txt); border:1px solid var(--line);
+    border-radius:8px; padding:9px 11px; font-size:14px; font-family:inherit; }
+  textarea { min-height:90px; resize:vertical; }
+  button { background:var(--acc); color:#052033; border:0; border-radius:8px;
+           padding:9px 16px; font-size:14px; font-weight:600; cursor:pointer; margin-top:10px; }
+  button.ghost { background:transparent; color:var(--acc); border:1px solid var(--acc); }
+  button:disabled { opacity:.4; cursor:wait; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; } .row > * { flex:1; min-width:180px; }
+  .status { font-size:13px; margin-top:8px; min-height:18px; }
+  .status.ok{color:var(--ok);} .status.err{color:var(--err);} .status.busy{color:var(--warn);}
+  .chat { background:#0b1220; border:1px solid var(--line); border-radius:8px;
+          padding:10px; max-height:260px; overflow-y:auto; margin-top:10px; font-size:14px; }
+  .chat .u{color:var(--acc); margin:6px 0 2px;} .chat .a{white-space:pre-wrap; margin-bottom:8px;}
+  .kcard { border:1px solid var(--line); border-radius:8px; padding:12px; margin-top:10px; }
+  .kcard .del { float:right; background:transparent; color:var(--err);
+                border:1px solid var(--err); padding:2px 10px; margin:0; font-size:12px; }
+  .pill { display:inline-block; background:#0b1220; border:1px solid var(--line);
+          border-radius:999px; padding:2px 10px; font-size:12px; color:var(--dim); margin:2px; }
+  code { background:#0b1220; padding:2px 6px; border-radius:6px; font-size:13px; }
+</style>
+</head>
+<body>
+
+<h1>🕹️ <span>ai-console</span> 온보딩 위저드</h1>
+<div class="sub">캐릭터 생성 → 지식 채우기 → 저장 → <b>장착</b> · 내부 포맷 변환은 설치된 LLM이 담당합니다</div>
+
+<!-- 0. 연결 -->
+<div class="card">
+  <h2><span class="step">0</span>콘솔 연결</h2>
+  <div class="row">
+    <div><label>API 키 (Bearer)</label><input type="password" id="apikey" placeholder="발급받은 API 키"></div>
+    <div style="flex:0 0 auto"><label>&nbsp;</label><button class="ghost" onclick="checkConn()">연결 확인</button></div>
+  </div>
+  <div class="status" id="s0"></div>
+</div>
+
+<!-- 1. 캐릭터 생성 -->
+<div class="card">
+  <h2><span class="step">1</span>캐릭터 생성 — 5문답</h2>
+  <label>① 이 에이전트는 무엇을 하나요? (한 문장)</label>
+  <input type="text" id="q1" placeholder="예: 우리 회사 인사규정에 대해 답해주는 도우미">
+  <label>② 누가 쓰나요?</label>
+  <input type="text" id="q2" placeholder="예: 전 직원, IT 비전문가 포함">
+  <div class="row">
+    <div><label>③ 어떤 말투로?</label>
+      <select id="q3">
+        <option value="정중한 존댓말, 간결하게">정중한 존댓말 · 간결</option>
+        <option value="정중한 존댓말, 상세하게">정중한 존댓말 · 상세</option>
+        <option value="친근한 반말체">친근한 반말체</option>
+        <option value="기술 문서체 (건조하고 정확하게)">기술 문서체</option>
+      </select></div>
+    <div><label>⑤ [고급] 작업 생성(쿼리·코드)?</label>
+      <select id="q5"><option value="false">아니오 — 질의응답만</option><option value="true">예 — ACTION intent 활성화</option></select></div>
+  </div>
+  <label>④ 반드시 지킬 규칙은?</label>
+  <textarea id="q4" placeholder="예: 규정에 없는 내용은 모른다고 답한다. 개인정보는 마스킹한다."></textarea>
+  <button id="bDraft" onclick="makeDraft()">✨ 프롬프트 초안 생성 (로컬 LLM)</button>
+  <div class="status" id="s1"></div>
+  <div id="draftBox" style="display:none">
+    <label>생성된 시스템 프롬프트 — 직접 수정 가능</label>
+    <textarea id="draft" style="min-height:180px"></textarea>
+    <label>테스트 대화</label>
+    <div class="chat" id="chat" style="display:none"></div>
+    <div class="row">
+      <input type="text" id="testq" placeholder="테스트 질문 입력 후 Enter" onkeydown="if(event.key==='Enter')testChat()">
+      <button style="flex:0 0 auto" class="ghost" onclick="testChat()">보내기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 2. 지식 채우기 -->
+<div class="card">
+  <h2><span class="step">2</span>지식 채우기 (RAG)</h2>
+  <div class="sub">문서를 던지면 LLM이 Q&A 초안을 만듭니다(큐레이션 모드). 검수 후 확정하세요.</div>
+  <div class="row">
+    <div><label>문서 파일 (.txt .md)</label><input type="file" id="kfile" accept=".txt,.md,.markdown"></div>
+    <div><label>목표 Q&A 개수</label><input type="text" id="kcount" value="5"></div>
+  </div>
+  <label>또는 텍스트 직접 붙여넣기</label>
+  <textarea id="ktext" placeholder="문서 내용을 붙여넣으세요"></textarea>
+  <div class="row">
+    <button id="bConv" onclick="convert()">🧲 Q&A 초안 생성 (로컬 LLM)</button>
+    <button class="ghost" onclick="addManual()">✏️ 직접 추가</button>
+  </div>
+  <div class="status" id="s2"></div>
+  <div id="klist"></div>
+</div>
+
+<!-- 3. 저장 -->
+<div class="card">
+  <h2><span class="step">3</span>카트리지 저장</h2>
+  <div class="row">
+    <div><label>카트리지 이름 (kebab-case)</label><input type="text" id="cname" placeholder="예: hr-policy"></div>
+    <div><label>설명 (선택)</label><input type="text" id="cdesc"></div>
+  </div>
+  <button onclick="saveCartridge()">💾 카트리지 저장</button>
+  <div class="status" id="s3"></div>
+  <div id="done" style="display:none; margin-top:10px; font-size:14px"></div>
+</div>
+
+<!-- 4. 장착 -->
+<div class="card">
+  <h2><span class="step">4</span>카트리지 장착</h2>
+  <div class="sub" style="margin:-4px 0 10px">
+    장착 = 프롬프트 배선(<code>config [prompts]</code>) + 지식 적재(임베딩 → Qdrant)를 한 번에.
+    콘솔 설정을 바꾸므로 <b>관리자 키</b>가 필요합니다 — <code>api_keys/admin.key</code>
+  </div>
+  <div class="row">
+    <div><label>관리자 키</label><input type="password" id="adminkey" placeholder="api_keys/admin.key 내용"></div>
+    <div style="flex:0 0 auto"><label>&nbsp;</label><button class="ghost" onclick="loadCartridges()">🔄 목록 새로고침</button></div>
+  </div>
+  <div class="status" id="s4"></div>
+  <div id="clist"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let knowledge = [];   // {question, answer, aliases[]}
+let savedName = null;
+
+function hdr() {
+  const k = $('apikey').value.trim();
+  localStorage.setItem('ac_key', k);
+  return { 'Authorization': 'Bearer ' + k, 'Content-Type': 'application/json' };
+}
+$('apikey').value = localStorage.getItem('ac_key') || '';
+
+function setS(id, msg, cls) { const el=$(id); el.textContent=msg; el.className='status '+(cls||''); }
+
+async function api(path, body) {
+  const r = await fetch(path, { method:'POST', headers:hdr(), body:JSON.stringify(body) });
+  if (!r.ok) { let d=''; try{ d=(await r.json()).detail||''; }catch(e){} throw new Error(r.status+' '+d); }
+  return r.json();
+}
+
+async function checkConn() {
+  setS('s0','확인 중…','busy');
+  try { const r = await fetch('/', {headers:hdr()}); setS('s0', r.ok ? '✓ 콘솔 연결됨' : '연결 실패 '+r.status, r.ok?'ok':'err'); }
+  catch(e){ setS('s0','연결 실패: '+e.message,'err'); }
+}
+
+async function makeDraft() {
+  if (!$('q1').value.trim()) return setS('s1','①번(역할)은 필수입니다','err');
+  $('bDraft').disabled = true; setS('s1','로컬 LLM이 초안 생성 중… (모델 속도에 따라 수십 초)','busy');
+  try {
+    const r = await api('/api/wizard/prompt-draft', {
+      role:$('q1').value, audience:$('q2').value, tone:$('q3').value,
+      rules:$('q4').value, needs_action:$('q5').value==='true' });
+    $('draft').value = r.draft; $('draftBox').style.display='block';
+    setS('s1','✓ 초안 생성 완료 — 수정 후 테스트해보세요','ok');
+  } catch(e){ setS('s1','실패: '+e.message,'err'); }
+  $('bDraft').disabled = false;
+}
+
+let hist = [];
+async function testChat() {
+  const q = $('testq').value.trim(); if (!q) return;
+  $('testq').value=''; $('chat').style.display='block';
+  $('chat').innerHTML += '<div class="u">▸ '+q+'</div><div class="a" id="pending">…</div>';
+  try {
+    const r = await api('/api/wizard/test-chat',
+      { system_prompt:$('draft').value, message:q, history:hist });
+    document.getElementById('pending').textContent = r.reply; document.getElementById('pending').removeAttribute('id');
+    hist.push({role:'user',content:q},{role:'assistant',content:r.reply});
+  } catch(e){ document.getElementById('pending').textContent='오류: '+e.message; }
+  $('chat').scrollTop = $('chat').scrollHeight;
+}
+
+$('kfile').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; if (f) $('ktext').value = await f.text();
+});
+
+async function convert() {
+  const t = $('ktext').value.trim(); if (!t) return setS('s2','문서 텍스트가 비어 있습니다','err');
+  $('bConv').disabled = true; setS('s2','LLM이 Q&A 추출 중…','busy');
+  try {
+    const r = await api('/api/wizard/knowledge-convert', { text:t, count:parseInt($('kcount').value)||5 });
+    r.items.forEach(addCard);
+    setS('s2', `✓ ${r.items.length}개 초안 생성` + (r.truncated?' (문서가 길어 앞부분만 사용됨)':''), 'ok');
+  } catch(e){ setS('s2','실패: '+e.message,'err'); }
+  $('bConv').disabled = false;
+}
+
+function addManual(){ addCard({question:'', answer:'', aliases:[]}); }
+
+function addCard(item) {
+  const idx = knowledge.length; knowledge.push(item);
+  const d = document.createElement('div'); d.className='kcard'; d.dataset.idx = idx;
+  d.innerHTML = `
+    <button class="del" onclick="this.parentElement.remove()">삭제</button>
+    <label>질문</label><input type="text" value="${esc(item.question)}" oninput="knowledge[${idx}].question=this.value">
+    <label>답변</label><textarea oninput="knowledge[${idx}].answer=this.value">${esc(item.answer)}</textarea>
+    <label>변형 질문 (aliases, 쉼표 구분)</label>
+    <input type="text" value="${esc((item.aliases||[]).join(', '))}"
+           oninput="knowledge[${idx}].aliases=this.value.split(',').map(s=>s.trim()).filter(Boolean)">`;
+  $('klist').appendChild(d);
+}
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function liveKnowledge() {
+  const live = [];
+  document.querySelectorAll('#klist .kcard').forEach(c => {
+    const k = knowledge[c.dataset.idx];
+    if (k && k.question.trim() && k.answer.trim()) live.push(k);
+  });
+  return live;
+}
+
+async function saveCartridge() {
+  if (!$('draft').value.trim()) return setS('s3','1단계에서 프롬프트를 먼저 만드세요','err');
+  if (!$('cname').value.trim()) return setS('s3','카트리지 이름을 입력하세요','err');
+  setS('s3','저장 중…','busy');
+  try {
+    const r = await api('/api/wizard/cartridge-save', {
+      name:$('cname').value.trim(), description:$('cdesc').value,
+      system_prompt:$('draft').value, knowledge:liveKnowledge() });
+    savedName = $('cname').value.trim();
+    setS('s3', `✓ 저장됨: ${r.saved} (지식 ${r.knowledge_files.length}개) — 아래 4단계에서 장착하세요`, 'ok');
+    loadCartridges();
+  } catch(e){ setS('s3','실패: '+e.message,'err'); }
+}
+
+// ── 4단계: 장착 ──────────────────────────────────────────────────
+// CLI(aibotctl cartridge)와 **같은 서버 경로**를 부른다. 지식 적재는 장착이 함께
+// 수행하므로 별도 '지식 적재' 버튼은 두지 않는다 — 따로 올리면 .mounted.json 이
+// 추적하지 못하는 벡터가 남고, 이어서 장착까지 하면 같은 지식이 두 번 올라간다.
+$('adminkey').value = localStorage.getItem('ac_admin') || '';
+
+async function loadCartridges() {
+  setS('s4','목록 불러오는 중…','busy');
+  try {
+    const r = await fetch('/api/wizard/cartridges', { headers: hdr() });
+    if (!r.ok) throw new Error(r.status === 401 ? 'API 키를 확인하세요' : r.status);
+    const d = await r.json();
+    renderCartridges(d);
+    setS('s4', d.mounted
+      ? `장착됨: ${d.mounted.cartridge} · 핸들러 ${d.mounted.handler} · 지식 ${d.mounted.knowledge_uploaded}건`
+      : `장착된 카트리지 없음 — 순정 상태 (핸들러 ${d.active_handler})`, d.mounted ? 'ok' : '');
+  } catch(e){ setS('s4','목록 실패: '+e.message,'err'); }
+}
+
+function renderCartridges(d) {
+  const el = $('clist');
+  if (!d.cartridges.length) {
+    el.innerHTML = '<div class="sub">cartridges/ 에 카트리지가 없습니다 — 위 3단계에서 만들어보세요</div>';
+    return;
+  }
+  el.innerHTML = d.cartridges.map(c => `
+    <div class="kcard">
+      <b>${esc(c.name)}</b>${c.mounted ? ' ✅ <span style="color:var(--dim)">장착됨</span>' : ''}
+      <div class="sub" style="margin:4px 0 8px">${esc(c.description||'(설명 없음)')} · 지식 ${c.knowledge_files}건</div>
+      ${c.mounted
+        ? `<button class="ghost" onclick="doUnmount()">⏏️ 해제</button>`
+        : `<button onclick="doMount('${esc(c.name)}')"${d.mounted ? ' disabled title="먼저 현재 카트리지를 해제하세요"' : ''}>🔌 장착</button>`}
+    </div>`).join('');
+}
+
+function adminKey() {
+  const k = $('adminkey').value.trim();
+  localStorage.setItem('ac_admin', k);
+  return k;
+}
+
+// 서버가 restart_required=false 로 답하면 런타임 리로드가 성공한 것 — 재시작 안내를 띄우지 않는다.
+// (프롬프트는 기동 시 인스턴스에 굳지만 /api/cartridge/reload 경로가 이를 되살린다)
+function showDone(msg, restartRequired) {
+  $('done').style.display = 'block';
+  $('done').innerHTML = restartRequired
+    ? `${msg}<br><b>콘솔을 재시작해야 프롬프트(캐릭터)가 반영됩니다</b> —
+       지식(RAG)은 즉시 반영됩니다.<br>
+       <code>./run.sh restart</code> 또는 <code>systemctl --user restart ai-console-default</code>`
+    : `${msg}<br><b>즉시 반영됐습니다 — 재시작이 필요 없습니다.</b><br>
+       바로 <a href="/chat">채팅에서 확인</a>해 보세요.`;
+}
+
+async function doMount(name) {
+  if (adminKey().length < 32) return setS('s4','관리자 키를 입력하세요 (api_keys/admin.key)','err');
+  setS('s4', `${name} 장착 중… 지식 임베딩에 시간이 걸립니다`, 'busy');
+  try {
+    const r = await api('/api/wizard/cartridge-mount', { name, admin_key: adminKey() });
+    let m = `✓ 장착: ${r.mounted} · 프롬프트 슬롯 ${r.prompt_slots}개 · 지식 ${r.knowledge_uploaded}건`;
+    if (r.warnings && r.warnings.length) m += ' · ⚠ ' + r.warnings.join(' / ');
+    setS('s4', m, 'ok');
+    showDone(`🎉 <b>${r.mounted}</b> 장착 완료.`, r.restart_required);
+    loadCartridges();
+  } catch(e){ setS('s4','장착 실패: '+e.message,'err'); }
+}
+
+async function doUnmount() {
+  if (adminKey().length < 32) return setS('s4','관리자 키를 입력하세요 (api_keys/admin.key)','err');
+  setS('s4','해제 중…','busy');
+  try {
+    const r = await api('/api/wizard/cartridge-unmount', { admin_key: adminKey() });
+    setS('s4', `✓ 해제: ${r.cartridge} · 지식 ${r.knowledge_removed}건 삭제`, 'ok');
+    showDone(`<b>${r.cartridge}</b> 해제 완료 — 순정 상태로 돌아갑니다.`, r.restart_required);
+    loadCartridges();
+  } catch(e){ setS('s4','해제 실패: '+e.message,'err'); }
+}
+
+// 페이지 진입 시 카트리지 목록을 한 번 불러온다 (API 키가 저장돼 있으면 바로 채워진다)
+if ($('apikey').value) loadCartridges();
+</script>
+</body>
+</html>

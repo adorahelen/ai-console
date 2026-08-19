@@ -1,0 +1,181 @@
+# ─────────────────────────────────────────────────────────
+# 모델 프리셋 — HW 티어별 취사선택 (install.sh가 기계적으로 소비)
+#
+# 필드 설명:
+#   handler        : config [model] model= 에 들어갈 핸들러 키
+#   runtime        : server(llama-server 별도 프로세스) | inprocess(llama-cpp-python)
+#   repo/include   : huggingface-cli download 인자
+#   local_dir      : 다운로드 위치 (리포 루트 기준)
+#   path_key       : config [paths]에서 이 모델 경로를 담는 키
+#   server_section : runtime=server일 때 쓰는 config 섹션
+#   server_overrides / extra_args : 섹션에 덮어쓸 값 (VRAM 맞춤)
+#   min_vram_gb    : 이 값 미만이면 install.sh가 후보에서 제외 (0 = GPU 없이도 가능)
+#   min_ram_gb     : 이 값 미만이면 후보에서 제외
+#
+# min_* 는 "들어가느냐"만 보는 하드 제약이다. 속도(코어 수 등)는 넣지 않는다 —
+# 부족해도 뜨긴 뜨는 축을 필터에 넣으면 돌릴 수 있는 HW를 거부하게 된다.
+# ─────────────────────────────────────────────────────────
+
+# 티어 기본 프리셋은 Gemma 4 계열로 통일한다 (Gemma-first).
+#   - 런타임 통일: 전 티어 runtime=server → install.sh의 llama-cpp-python **바인딩** 빌드가 사라진다
+#     (llama-server 바이너리의 소스 빌드는 그대로 남는다 — 4vCPU VM 기준 설치 중 최장 단계)
+#   - KV 캐시 재사용(--cache-reuse/--slot-prompt-similarity)이 handler_gemma에만 기본 적용된다
+#     (handler_gpt_oss는 config 명시 시에만 — 비대칭, docs/testing-guide.md의 미결 A/B)
+#   - 티어 안의 순서는 실측 tok/s 내림차순
+# gpt-oss·llama는 삭제가 아니라 --preset 지정 전용으로 내린다 — 실측 자산은 그대로 유지된다.
+# qwen은 코드의 per-model 분기(get_corrected_query 등)가 다루지 않아 선택 시 크래시/오동작하므로
+# 제품 표면(티어 목록)에서 제외한다. 핸들러 자체는 레지스트리에 남아 있어, 위험을 감수한
+# 수동 config(model=qwen) 사용자는 여전히 쓸 수 있으나 install.sh는 제안하지 않는다.
+tiers:
+  cpu-only:
+    desc: GPU 없음 · 램 8GB+
+    presets: [gemma4-e4b-q4, gemma4-e2b-q4]
+  gpu-8gb:
+    desc: RTX 4060 급 (VRAM 6~11GB)
+    presets: [gemma4-e4b-q4, gemma4-e2b-q4]
+  gpu-16gb:
+    desc: RTX 4080 / 5070 Ti 급 (VRAM 12~23GB)
+    presets: [gemma4-12b-q4, gemma4-26b-moe-offload]
+  gpu-24gb-plus:
+    desc: RTX 3090 / 5090 급 (VRAM 24GB+)
+    presets: [gemma4-26b-full, gemma4-12b-q4]
+  api:
+    desc: GPU 불필요 · 외부 API (온프레미스 요건 없을 때)
+    presets: [openai-api, claude-api]
+
+presets:
+  # ── 티어 기본 (Gemma-first) ──────────────────────────────
+  # unsloth QAT GGUF(UD-Q4_K_XL)의 include는 정확 파일명 필수 — 이 리포들엔 Q4_0 메인 모델이
+  # 없어 "*Q4_0*" 글롭은 MTP 보조 모듈만 매치한다(메인은 UD-Q4_K_XL 단일, 나머지는
+  # mtp/mmproj 보조 모듈. HF API 실측 2026-07-22).
+  gemma4-e2b-q4:
+    handler: gemma
+    runtime: server
+    repo: unsloth/gemma-4-E2B-it-qat-GGUF
+    include: "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
+    local_dir: models/gemma4-e2b
+    path_key: gemma_model_path
+    server_section: llama_server_gemma
+    server_overrides:
+      n_ctx: 32768
+      n_parallel: 1
+    min_vram_gb: 0
+    min_ram_gb: 8
+    vram: UD-Q4_K_XL 2.62GB (HF content-length 실측 2026-07-31) — 런타임 미실측
+    note: 최저사양 폴백. 런타임 메모리·tok/s·콘솔 품질 모두 미측정 — 실측 전까지 수치를 신뢰하지 말 것
+
+  gemma4-e4b-q4:
+    handler: gemma
+    runtime: server
+    repo: unsloth/gemma-4-E4B-it-qat-GGUF
+    include: "gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"
+    local_dir: models/gemma4-e4b
+    path_key: gemma_model_path
+    server_section: llama_server_gemma
+    server_overrides:
+      n_ctx: 32768
+      n_parallel: 1
+    min_vram_gb: 0
+    min_ram_gb: 12
+    vram: UD-Q4_K_XL 4.22GB (HF content-length 실측 2026-07-31) — 런타임 미실측
+    note: 저사양 기본. 총 8B급(E=유효 파라미터) — 런타임 메모리·tok/s 미측정
+
+  gemma4-12b-q4:
+    handler: gemma
+    runtime: server
+    repo: unsloth/gemma-4-12B-it-qat-GGUF
+    include: "gemma-4-12B-it-qat-UD-Q4_K_XL.gguf"
+    local_dir: models/gemma4-12b
+    path_key: gemma_model_path
+    server_section: llama_server_gemma
+    server_overrides:
+      n_ctx: 32768
+      n_parallel: 1
+    min_vram_gb: 9
+    min_ram_gb: 16
+    vram: 7,836MiB/16GB (ctx 32768 포함) [T2 실측 2026-07-22] · 파일 6.72GB
+    note: T2 실측 99.1 tok/s·M4 100회 무결·KV 여유 8GB+. 12GB 카드에서 유일하게 들어가는 티어 기본
+
+  gemma4-26b-moe-offload:
+    handler: gemma
+    runtime: server
+    repo: unsloth/gemma-4-26B-A4B-it-GGUF
+    include: "gemma-4-26B-A4B-it-UD-Q4_K_M.gguf"
+    local_dir: models/gemma4-26b
+    path_key: gemma_model_path
+    server_section: llama_server_gemma
+    server_overrides:
+      n_ctx: 32768
+      n_parallel: 1
+      n_batch: 1024
+    extra_args: "--n-cpu-moe 16"
+    min_vram_gb: 14
+    min_ram_gb: 32
+    vram: GPU 10,646MiB(단독)·BGE-M3 동거 시 ~12.5GB/16GB, 여유 ~3.8GB [T2 실측 2026-07-23]
+    note: N=16 스윕 61.8 tok/s(전량 오프로드 40.7의 1.52배)·prompt_ms 112→72. expert가 램 ~14GB 상주해 32GB 필수. N≥32=전량과 동일(MoE ~32층), N=8은 14,276MiB로 BGE 동거 불가. 전량 폴백은 --cpu-moe(4,214MiB·40.7 tok/s [T2 실측 2026-07-22])
+
+  gemma4-26b-full:
+    handler: gemma
+    runtime: server
+    repo: unsloth/gemma-4-26B-A4B-it-GGUF
+    include: "gemma-4-26B-A4B-it-UD-Q4_K_M.gguf"
+    local_dir: models/gemma4-26b
+    path_key: gemma_model_path
+    server_section: llama_server_gemma
+    server_overrides:
+      n_ctx: 131072
+      n_parallel: 2
+    min_vram_gb: 24
+    min_ram_gb: 16
+    vram: 20~28GB (컨텍스트에 비례 — 원본 서버 실측 ctx 524288 시 28.4GB)
+    note: 원본 운영 실측 221.2 tok/s·TTFT 16ms(RTX 5090). min_vram_gb=24는 보수적 추정 — 기본 ctx 131072에서의 VRAM은 미실측
+
+  openai-api:
+    # handler는 handler_registry.HANDLER_CLASSES 키 — OpenAI 핸들러의 키는 'gpt'다 ('openai' 아님)
+    handler: gpt
+    runtime: api
+    min_vram_gb: 0
+    min_ram_gb: 0
+    note: config [openai] api_key 필요. base_url override로 OpenAI 호환 엔드포인트도 사용 가능
+  claude-api:
+    handler: claude
+    runtime: api
+    min_vram_gb: 0
+    min_ram_gb: 0
+    note: config [bedrock] 자격 또는 Anthropic API 키 필요
+
+  # ── 티어 목록 비제안 — --preset 지정 전용 ────────────────
+  # Gemma-first 전환으로 기본에서 내렸다. 실측치는 리포에서 가장 두터운 축이므로 그대로 보존한다.
+  gpt-oss-20b:
+    handler: gpt-oss
+    runtime: server
+    repo: unsloth/gpt-oss-20b-GGUF
+    include: "*F16*"
+    local_dir: models/gpt-oss-20b
+    path_key: gpt_oss_model_path
+    server_section: llama_server
+    server_overrides:
+      n_ctx: 32768
+      n_parallel: 2
+    min_vram_gb: 14
+    min_ram_gb: 16
+    vram: 13.2GB/16GB [T2 실측 2026-07-22 — -ngl 99 풀탑재+BGE 동거, 여유 ~3GB]
+    note: T2 실측 gen 176 tok/s(단독)·132×2(2슬롯), 콘솔 종단 ~6.4ms/tok+오버헤드 0.7s. 생성 속도는 16GB 최고지만 KV 캐시 재사용 미승계
+
+  llama31-8b-q4:
+    handler: llama
+    runtime: inprocess
+    repo: bartowski/Meta-Llama-3.1-8B-Instruct-GGUF
+    include: "*Q4_K_M*"
+    local_dir: models/llama31-8b
+    path_key: local_llama_model_path
+    min_vram_gb: 0
+    min_ram_gb: 16
+    vram: 7.9GB/16GB [T2 실측 2026-07-27 — 인프로세스 35층·ctx 16384·BGE 동거. 순수 llama-server 단독은 6.8GB]
+    note: 유일한 runtime=inprocess (llama-cpp-python 소스 빌드 필요). 별도 llama-server 기준 152.9 tok/s [T2 실측] — inprocess 경로 자체의 tok/s는 미측정. 한국어는 Meta 모델카드가 공식 미지원으로 명시
+
+# 임베딩은 전 티어 공통 (RAG 필수)
+embedding:
+  repo: BAAI/bge-m3
+  local_dir: models/bge-m3
+  note: GPU 여유 없으면 CPU로 (VRAM 약 1.0GB 절약 — docs/multi-instance.md 실측)

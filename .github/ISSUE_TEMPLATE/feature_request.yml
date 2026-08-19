@@ -1,0 +1,61 @@
+name: 제안 / Proposal
+description: 새 기능·프리셋·카트리지 제안 / Propose a feature, model preset, or cartridge
+labels: ["proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        먼저 [CONTRIBUTING.md](https://github.com/adorahelen/ai-console-public/blob/main/CONTRIBUTING.md)의 **바꾸지 않는 방향** 네 가지를 봐주세요.
+        아키텍처 교체·새 프레임워크 도입·파인튜닝은 설계 결정이라 받지 않습니다.
+
+        Please read the four fixed design decisions in [CONTRIBUTING.md](https://github.com/adorahelen/ai-console-public/blob/main/CONTRIBUTING.md) first.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 무엇에 대한 제안인가 / What kind
+      options:
+        - 엔진 기능 / Engine feature
+        - 모델 프리셋 / Model preset
+        - 카트리지 (도메인 자산) / Cartridge
+        - 설치·이식성 / Install & portability
+        - 문서 / Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 어떤 문제를 푸는가 / What problem does this solve
+      description: 해법이 아니라 문제부터 / Start with the problem, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안 / Proposal
+      description: |
+        기존 통로(`config.ini [prompts]` · `/api/ai/prompts/bulk` · `models.yaml`)로
+        풀 수 있다면 그 방법도 함께 적어주세요.
+        If this can be done through the existing channels, say how.
+    validations:
+      required: true
+
+  - type: textarea
+    id: measurements
+    attributes:
+      label: 실측치 / Measurements
+      description: |
+        **모델 프리셋 제안이면 필수** — 다운로드 명령, 실측 VRAM, tok/s, 측정 환경.
+        추정치는 받지 않습니다.
+        **Required for preset proposals** — download command, measured VRAM, tok/s, and the machine you measured on. Estimates are not accepted.
+      render: shell
+
+  - type: textarea
+    id: license
+    attributes:
+      label: 출처·라이선스 / Source & license
+      description: |
+        **카트리지 제안이면 필수** — 지식의 출처와 재배포 라이선스, LLM 생성분 포함 여부.
+        **Required for cartridge proposals** — where the knowledge came from, its redistribution license, and whether any of it is LLM-generated.

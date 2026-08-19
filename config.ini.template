@@ -1,0 +1,204 @@
+[openai]
+api_key = YOUR-OPENAI-API-KEY
+
+[bedrock]
+aws_region = us-east-1
+
+[paths]
+rfp_docs_dir = docs/rfp
+rfp_embedding_dir = qa_embeddings/rfp
+aibot_docs_dir = docs/aibot/yaml/
+system_docs_dir = docs/system/yaml/
+aibot_embedding_dir = qa_embeddings/aibot
+system_embedding_dir = qa_embeddings/system
+prompt_dir = prompts
+api_keys_dir = api_keys
+local_llama_model_path = /data/models/meta-llama-3.1-8b-instruct-q4_k_m.gguf
+gpt_oss_model_path = /data/models/gpt-oss-20b-GGUF/gpt-oss-20b-F16.gguf
+qwen_model_path = /data/models/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf
+gemma_model_path = /data/models/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf
+
+[prompts]
+gpt = ./prompts/gpt_prompt.txt
+gpt_oss = ./prompts/gpt_oss_prompt.yaml
+gemma = ./prompts/gemma_prompt.yaml
+llama = ./prompts/llama_prompt.yaml
+qwen = ./prompts/qwen_prompt.yaml
+domain_keywords = ./prompts/system/domain_keywords.txt
+command_ref_classifier = ./prompts/system/command_ref_classifier.txt
+wizard_prompt_draft = ./prompts/system/wizard_prompt_draft.txt
+wizard_knowledge_extract = ./prompts/system/wizard_knowledge_extract.txt
+translation_summary = ./prompts/system/translation_summary.txt
+translation_normal = ./prompts/system/translation_normal.txt
+translation_cve = ./prompts/system/translation_cve.txt
+intent = ./prompts/system/intent_classification.yaml
+qna_cve = ./prompts/system/qna_cve.yaml
+action = ./prompts/system/action.yaml
+plan = ./prompts/system/plan.yaml
+playbook = ./prompts/system/playbook.yaml
+qna_gpt = ./prompts/system/qna_gpt.yaml
+action_gpt = ./prompts/system/action_gpt.yaml
+plan_gpt = ./prompts/system/plan_gpt.yaml
+focus_query = ./prompts/system/action.yaml
+post_action = ./prompts/system/post_action.yaml
+ticket_memo = ./prompts/system/ticket_memo.yaml
+slack = ./prompts/system/qna_gpt_slack.yaml
+title = ./prompts/system/title.yaml
+
+[model]
+model = gpt-oss
+model_name = gpt-5-mini
+temperature = 1.0
+max_tokens = 1024
+reasoning_effort = low
+chunk_size = 1000
+chunk_overlap = 200
+
+[search]
+search_strategy = basic
+max_parallel_searches = 4
+cache_enabled = False
+cache_expiry_seconds = 3600
+search_timeout_seconds = 10
+
+[search_weights]
+filename_question = 0.35
+exact_keyword = 0.25
+semantic_vector = 0.10
+translated_search = 0.05
+knowledge_graph = 0.15
+contextual_expansion = 0.10
+
+[option]
+use_hnsw = False
+focus = query
+response = complete
+translation = True
+user_intent_prompt = True
+show_metadata = False
+
+[regression]
+intent_analysis = docs/regression/intent_analysis/intent_question.txt
+validation = docs/regression/validation
+
+[validation]
+base_url = https://localhost:4443
+api_key = YOUR-VALIDATION-API-KEY
+llama_val_action = ./prompts/validation/llama_val_action.yaml
+llama_val_qna = ./prompts/validation/llama_val_qna.yaml
+gpt_val = ./prompts/validation/gpt_val.yaml
+# 콜백 경로 — 외부 콘솔 연동형 카트리지 장착 시 원 콘솔의 경로를 지정 (예: /api/<도메인>/ai/{chat_guid}/queue)
+queue_path = /api/ai/{chat_guid}/queue
+apps_path = /api/apps
+# 쿼리 검증 플러그인 — 비우면 검증 비활성. 카트리지가 검증기를 제공하면 모듈명을 지정
+plugin_module =
+plugin_path = ./query-validator/src
+
+[server]
+port = 443
+ssl_certfile = ./ssl/selfsigned.crt
+ssl_keyfile = ./ssl/selfsigned.key
+saas_mode = False
+# 구 콘솔 호환 alias: 기존 경로를 유지하려면 접두어 설정 (예: /legacy)
+agent_alias_prefix =
+# OpenAI 호환 경로(/agent/chat/completions)가 RAG·카트리지 파이프라인을 타게 할지.
+#   true  → intent 분류 → PII 마스킹 → RAG 검색 → 카트리지 프롬프트 (= 도메인 에이전트)
+#   false → messages 를 LLM 에 직결 (= 생 LLM. 구 배포 호환)
+# 외부 서비스를 openai-full 로 붙일 때 이 값이 false 면 카트리지가 통째로 무시된다.
+# /agent/chat/completions2 는 이름(Direct)대로 이 값과 무관하게 항상 직결이다.
+agent_rag = true
+# /api/query/stream 을 토큰 단위 스트리밍으로 (false 면 완성 후 1프레임 — 구 배포 계약).
+# 스트리밍 모드의 usage 프레임은 토큰 미집계(0)로 온다.
+stream_tokens = true
+# CORS 오리진 화이트리스트 (쉼표 구분). 비우면 와일드카드로 열되 **자격증명은 차단**한다.
+#   와일드카드+자격증명을 동시에 켜면 starlette 가 요청 Origin 을 되비춰, 임의 사이트가
+#   쿠키를 실은 교차출처 요청을 보내고 응답을 읽을 수 있다 (security-review.md S-4).
+#   동봉 web-UI(/wizard·/chat)는 동일 출처라 비워둬도 정상 동작한다.
+#   예: cors_origins = https://admin.example.com, https://ops.example.com
+cors_origins =
+
+[pii]
+# LLM 입력 전 개인정보 치환 게이트 (온프레미스 · 외부 통신 0).
+# 한국형 인식기: 주민·사업자·법인·전화·여권·운전면허·카드·계좌·건강보험·차량·IP·이메일·MAC.
+#
+#   pii_mode = True  → 질문·history 를 마스킹한 뒤 RAG 검색·프롬프트 조립·모델 호출
+#   restore  = True  → 응답의 <ENTITY_n> 토큰을 원본값으로 되돌려 사용자에게 보여준다
+#              False → 토큰을 그대로 남긴다. 마스킹이 실제로 걸렸는지 눈으로 검증할 때 유용
+#   verbose  = True  → 치환 전/후를 로그로 출력 (디버깅 전용 — 로그에 원문 PII 가 남는다)
+#
+# ⚠️ 적용 범위는 security-review.md S-6 표를 볼 것. **외부 API 티어(openai·claude)를 쓴다면
+#    반드시 켤 것** — 끄면 원문이 외부 사업자에게 그대로 전달된다.
+pii_mode = False
+restore = True
+verbose = False
+
+[embedding]
+use_bge_mode = True
+bge_model_path = /data/models/bge-m3
+
+[database]
+use_db_mode = True
+url = localhost
+port = 3306
+user = YOUR-DB-USER
+password = YOUR-DB-PASSWORD
+database = YOUR-DB-NAME
+
+[qdrant]
+use_server = True
+host = localhost
+port = 6333
+timeout = 300
+# 지식 컬렉션명 — 인스턴스별로 달리 주면 Qdrant 1대 공유 시에도 지식이 격리된다 (기본 bge)
+collection = bge
+
+[slack]
+enabled = False
+bot_token = xoxb-YOUR-BOT-TOKEN
+app_token = xapp-YOUR-APP-TOKEN
+
+[sync]
+# 메인 서버에서 서브 서버로 YAML/임베딩 주기적 동기화 (서브 서버만 enabled=True)
+enabled = False
+main_server_url = http://main-server:8000
+api_key =
+interval_seconds = 300
+
+[llama_server]
+# GPT-OSS 메인 추론용 llama-server
+use_server_mode = True
+binary_path = YOUR-LLAMA-SERVER-BINARY-PATH
+host = 127.0.0.1
+port = 8181
+n_gpu_layers = 99
+n_ctx = 327680
+n_parallel = 20
+n_batch = 1024
+# KV 캐시 재사용 — 미설정 시 꺼짐. 16GB GPU A/B 후 기본값 결정 예정
+# cache_reuse = 256
+# slot_prompt_similarity = 0.5
+
+[llama_server_translation]
+# 번역 전용 llama-server (별도 인스턴스, 가벼운 컨텍스트)
+use_server_mode = True
+binary_path = YOUR-LLAMA-SERVER-BINARY-PATH
+host = 127.0.0.1
+port = 8182
+n_gpu_layers = 99
+n_ctx = 16384
+n_parallel = 4
+n_batch = 512
+
+[llama_server_gemma]
+# Gemma 전용 llama-server (install.sh가 gemma 프리셋 선택 시 사용)
+use_server_mode = False
+binary_path = YOUR-LLAMA-SERVER-BINARY-PATH
+host = 127.0.0.1
+port = 8183
+n_gpu_layers = 99
+n_ctx = 32768
+n_parallel = 1
+n_batch = 1024
+# KV 캐시 재사용 — 원본 운영 서버 운용값이자 미설정 시의 기본
+cache_reuse = 256
+slot_prompt_similarity = 0.5

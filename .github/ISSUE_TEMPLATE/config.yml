@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 기여 안내 / Contributing guide
+    url: https://github.com/adorahelen/ai-console-public/blob/main/CONTRIBUTING.md
+    about: 무엇을 받고 무엇을 받지 않는지 / What is and is not accepted.
+  - name: 설치 가이드 / Install guide
+    url: https://github.com/adorahelen/ai-console-public/blob/main/docs/install-paths.md
+    about: 설치 경로·디렉터리 구조 세부 / Install paths and directory layout.
+  - name: 나만의 에이전트 만들기 / Build your own agent
+    url: https://github.com/adorahelen/ai-console-public/blob/main/docs/build-your-own-agent.md
+    about: 카트리지 제작 전체 안내 / Full cartridge walkthrough.

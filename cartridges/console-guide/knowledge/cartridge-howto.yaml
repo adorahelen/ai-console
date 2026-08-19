@@ -1,0 +1,18 @@
+type: qna
+name: console-guide-cartridge-001
+enabled: true
+question: 내 도메인 카트리지는 어떻게 만드나요?
+answer: |
+  카트리지는 프롬프트·지식·모델 3슬롯이에요. 다섯 단계로 만듭니다:
+  1. `cp -r cartridges/_template cartridges/my-domain` 후 cartridge.yaml 작성
+  2. `prompts/` — intent 분류 + intent별 시스템 프롬프트 작성 (도메인 지능의 본체)
+  3. `knowledge/` — qna/action 형식의 YAML로 지식 작성
+  4. models.yaml에서 HW에 맞는 프리셋 선택
+  5. config.ini [prompts] 경로를 내 파일로 연결 + 지식을 bulk API로 업로드
+
+  전체 안내는 docs/build-your-own-agent.md, 살아있는 예시는 cartridges/console-guide/를 보세요.
+aliases:
+- 카트리지 만드는 법
+- 새 도메인 추가하는 법
+- 나만의 에이전트 만들기
+- _template은 어떻게 쓰나요

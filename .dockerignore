@@ -1,0 +1,53 @@
+.git/
+.gitignore
+
+# 빌드/배포 산출물
+dist/
+offline/
+.install_state/
+
+# 환경별/민감 설정 (image 에 박아두면 위험)
+config.ini
+config.ini.bak*
+config_gpt.ini
+shell-legacy/install.conf
+shell/install.conf
+api_keys/*
+ssl/selfsigned.*
+utils/.encryption_key
+
+# docker/ 폴더의 host-local / runtime 산출물 (build context 에서 제외)
+docker/.env
+docker/config.ini.docker
+docker/utils-docker/
+docker/logs/
+docker/cache/
+docker/api_keys/*
+docker/ssl/selfsigned.*
+
+# 런타임 산출물
+logs/
+cache/
+qa_embeddings/
+qa_embeddings_gpt/
+*.log
+*.bak.*
+
+# 큰 사본/벤치마크
+benchmark/
+_archive/
+
+# 내부 개발 노트 (배포 image에 포함 안 함)
+dev_notes/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# llama-cpp build 산출물 (Dockerfile 내부에서 빌드)
+llama-cpp-python/vendor/llama.cpp/build*/
+
+# 모델은 image 에 안 넣음 — runtime volume mount
+models/
+*.gguf

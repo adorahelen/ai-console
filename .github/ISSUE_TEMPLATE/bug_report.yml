@@ -1,0 +1,90 @@
+name: 버그 신고 / Bug report
+description: 설치·기동·응답이 기대와 다르게 동작할 때 / Something installs, starts, or answers incorrectly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        한국어·영어 모두 좋습니다 / Korean or English both fine.
+
+        **보안 취약점은 여기 열지 마세요** — 리포 소유자에게 직접 연락 바랍니다.
+        Do not report security vulnerabilities here; contact the repository owner directly.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 일어났나 / What happened
+      description: 기대한 동작과 실제 동작을 나눠서 적어주세요 / Separate what you expected from what you got.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 절차 / Steps to reproduce
+      description: 실제로 친 명령 그대로 / The commands you actually ran.
+      placeholder: |
+        1. ./install.sh --preset gpt-oss-20b
+        2. aibotctl cartridge mount cartridges/console-guide
+        3. curl -sk -X POST https://localhost:8443/agent/chat/completions ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tier
+    attributes:
+      label: HW 티어 / Hardware tier
+      options:
+        - cpu-only (GPU 없음 · 램 16GB+)
+        - gpu-8gb (VRAM 6~11GB)
+        - gpu-16gb (VRAM 12~23GB)
+        - gpu-24gb-plus (VRAM 24GB+)
+        - api (외부 API)
+        - 모름 / Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: preset
+    attributes:
+      label: 프리셋 / Preset
+      description: models.yaml 의 프리셋 이름 / The preset name from models.yaml.
+      placeholder: gpt-oss-20b
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: 설치 방식 / Install method
+      options:
+        - install.sh
+        - docker/ 스택 / docker stack
+        - 수동 / manual
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: OS · Python
+      placeholder: "Ubuntu 24.04 · Python 3.12.3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 로그 / Logs
+      description: |
+        `./run.sh status` 와 관련 로그. **붙여넣기 전에 키·인증서·내부 IP·호스트명을 지워주세요.**
+        Redact keys, certificates, internal IPs, and hostnames before pasting.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 확인
+      options:
+        - label: 로그에서 시크릿과 내부 식별자를 지웠습니다 / I redacted secrets and internal identifiers
+          required: true

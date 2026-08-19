@@ -1,0 +1,36 @@
+# ─────────────────────────────────────────────────────────
+# 카트리지 매니페스트 — 이 파일 하나가 도메인의 정의다
+# 새 도메인 = 이 템플릿 복사 → 세 슬롯(프롬프트·지식·모델)을 채운다
+# ─────────────────────────────────────────────────────────
+name: my-domain              # 카트리지 식별자 (디렉토리명과 일치 권장)
+version: 0.1.0
+description: >
+  이 카트리지가 에이전트에게 부여하는 도메인 정체성 한 줄.
+
+# ── 슬롯 1: 프롬프트 (도메인 지능의 본체) ──────────────────
+# prompts/ 하위 파일이 config.ini [prompts] 경로로 연결된다.
+# 최소 구성: intent_classification + intent별 시스템 프롬프트
+prompts:
+  intent: prompts/intent_classification.yaml
+  qna: prompts/qna.yaml          # 지식 질의응답
+  action: prompts/action.yaml    # 도메인 작업 생성 (쿼리·코드·문서 등)
+  plan: prompts/plan.yaml        # 다단계 계획 (선택)
+  # system: prompts/system.txt   # 단일 시스템 프롬프트만 있는 카트리지(위저드 생성물)용 슬롯
+
+# ── 슬롯 2: 지식 (RAG에 채울 문서) ─────────────────────────
+# knowledge/ 하위 YAML이 /api/ai/prompts/bulk 로 업로드되어
+# BGE-M3 임베딩 → Qdrant 적재된다. 문서 형식은 knowledge/README.md 참조.
+knowledge:
+  dir: knowledge/
+  # 업로드: curl -X POST .../api/ai/prompts/bulk -F "files=@knowledge/*.yaml"
+
+# ── 슬롯 3: 모델 (HW에 맞게 선택) ──────────────────────────
+# models.yaml의 티어 중 이 도메인에 권장하는 조합
+model:
+  recommended: llama31-8b-q4     # models.yaml 프리셋 키
+  minimum_tier: gpu-8gb
+  notes: 도메인 특성상 필요한 모델 요건이 있으면 기록 (예 - 긴 컨텍스트, 코드 특화)
+
+# ── 선택: 플러그인 ─────────────────────────────────────────
+# 도메인 전용 후처리기가 있으면 등록 (예 - secops의 query-validator)
+plugins: []

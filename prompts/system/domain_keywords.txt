@@ -1,0 +1,26 @@
+# 도메인 키워드 — 이 단어가 질문에 있으면 기술 질문으로 판정해 RAG 검색을 수행한다.
+# 카트리지가 자기 도메인에 맞게 교체하는 파일 (한 줄 = 키워드 하나, # 주석)
+# 예시: 범용 기본값
+사용법
+설치
+install
+설정
+config
+명령어
+command
+쿼리
+query
+오류
+에러
+error
+문법
+syntax
+옵션
+option
+파라미터
+parameter
+예제
+example
+api
+함수
+function

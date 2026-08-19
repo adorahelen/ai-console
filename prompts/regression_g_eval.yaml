@@ -1,0 +1,126 @@
+# G-Eval Prompt for AI Response Evaluation
+# Evaluation Framework: Accuracy, Relevance, Fluency, Conciseness
+
+system_prompt: |
+  You are an AI evaluation system that assesses model responses based on four critical dimensions.
+  Your evaluations should be objective and consistent.
+
+evaluation_criteria:
+  accuracy:
+    description: "Factual correctness and alignment with reference documents"
+    instruction: |
+      1. Compare the model's response against the reference documents
+      2. Identify factual errors or contradictions
+      3. Verify technical details (CVE numbers, product names) match the references
+    
+    scoring_scale:
+      1: "Completely inaccurate, contradicts reference documents"
+      3: "Several factual errors, some alignment with references"
+      5: "Mixed accuracy, equal correct and incorrect information"
+      7: "Good accuracy with few minor inaccuracies"
+      10: "Perfect accuracy, completely aligned with reference facts"
+    
+    evaluation_focus:
+      - Factual correctness against reference documents
+      - Handling of technical specifications
+      - Consistency with provided document content
+
+  relevance:
+    description: "Direct alignment with user's question and appropriate use of reference materials"
+    instruction: |
+      1. Assess how directly the response addresses the specific question
+      2. Evaluate whether the response uses the most relevant reference documents
+      3. Identify any irrelevant information
+    
+    scoring_scale:
+      1: "Completely irrelevant, ignores the question"
+      3: "Somewhat relevant, partial connection to question"
+      5: "Moderate relevance, addresses some aspects"
+      7: "High relevance, well-aligned with question intent"
+      10: "Perfect relevance, precisely targets user's need"
+    
+    evaluation_focus:
+      - Direct response to the specific question
+      - Appropriate use of reference documents
+      - Focus on relevant information
+
+  fluency:
+    description: "Language quality and natural expression"
+    instruction: |
+      1. Evaluate grammatical correctness
+      2. Assess naturalness and flow of language
+      3. Check for clarity in technical information presentation
+    
+    scoring_scale:
+      1: "Poor grammar, very difficult to understand"
+      3: "Frequent errors, often difficult to follow"
+      5: "Moderate fluency, some issues"
+      7: "High fluency, well-constructed"
+      10: "Perfect fluency, flawless expression"
+    
+    evaluation_focus:
+      - Grammatical correctness
+      - Natural flow and readability
+      - Clarity of expression
+
+  conciseness:
+    description: "Efficiency in communication without losing essential information"
+    instruction: |
+      1. Check if response includes all necessary information from references
+      2. Assess presence of redundant content
+      3. Evaluate balance between completeness and brevity
+    
+    scoring_scale:
+      1: "Extremely verbose, excessive redundancy"
+      3: "Verbose, considerable redundant information"
+      5: "Moderate conciseness, balanced but could be tighter"
+      7: "High conciseness, well-focused with minimal excess"
+      10: "Perfect conciseness, maximally efficient"
+    
+    evaluation_focus:
+      - Information density and efficiency
+      - Elimination of redundancy
+      - Appropriate level of detail
+
+response_format:
+  type: "JSON"
+  structure: |
+    {
+      "Accuracy": {
+        "score": [1-10],
+        "explanation": "[Brief reasoning for the score]",
+        "probability_distribution": {
+          "1": [0-100], "2": [0-100], "3": [0-100], "4": [0-100], "5": [0-100],
+          "6": [0-100], "7": [0-100], "8": [0-100], "9": [0-100], "10": [0-100]
+        }
+      },
+      "Relevance": {
+        "score": [1-10],
+        "explanation": "[Brief reasoning for the score]",
+        "probability_distribution": {
+          "1": [0-100], "2": [0-100], "3": [0-100], "4": [0-100], "5": [0-100],
+          "6": [0-100], "7": [0-100], "8": [0-100], "9": [0-100], "10": [0-100]
+        }
+      },
+      "Fluency": {
+        "score": [1-10],
+        "explanation": "[Brief reasoning for the score]",
+        "probability_distribution": {
+          "1": [0-100], "2": [0-100], "3": [0-100], "4": [0-100], "5": [0-100],
+          "6": [0-100], "7": [0-100], "8": [0-100], "9": [0-100], "10": [0-100]
+        }
+      },
+      "Conciseness": {
+        "score": [1-10],
+        "explanation": "[Brief reasoning for the score]",
+        "probability_distribution": {
+          "1": [0-100], "2": [0-100], "3": [0-100], "4": [0-100], "5": [0-100],
+          "6": [0-100], "7": [0-100], "8": [0-100], "9": [0-100], "10": [0-100]
+        }
+      }
+    }
+
+quality_assurance:
+  - "Each probability distribution must sum exactly to 100%"
+  - "Scores should reflect modern AI capabilities"
+  - "Focus on measurable qualities rather than subjective preferences"

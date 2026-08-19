@@ -1,0 +1,14 @@
+type: qna
+name: console-guide-endpoints-001
+enabled: true
+question: 설치 후 어디로 접속하나요?
+answer: |
+  콘솔 기동(`.venv/bin/python qa_llm.py`) 후:
+  - 온보딩 위저드: `https://localhost:8443/wizard`
+  - API 문서(Swagger): `https://localhost:8443/docs`
+  - REST API: `https://localhost:8443/api/...` (Bearer 키 필요)
+  Qdrant(`./qdrant/qdrant &`)를 먼저 띄워야 RAG 검색이 동작해요.
+aliases:
+- 접속 주소가 뭔가요
+- 포트 몇 번인가요
+- API 문서 어디서 보나요

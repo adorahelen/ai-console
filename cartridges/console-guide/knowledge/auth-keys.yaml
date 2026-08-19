@@ -1,0 +1,16 @@
+type: qna
+name: console-guide-auth-001
+enabled: true
+question: API 인증은 어떻게 하나요?
+answer: |
+  모든 API는 Bearer 키 인증을 써요. file 모드(기본)에서는 `api_keys/` 디렉토리의
+  각 `*.key` 파일 첫 줄이 유효한 키예요:
+  ```bash
+  KEY=$(head -1 api_keys/*.key)
+  curl -sk -H "Authorization: Bearer $KEY" https://localhost:8443/api/ai/hello
+  ```
+  키 파일을 추가하면 키가 추가되고, 지우면 폐기돼요.
+aliases:
+- API 키 어디 있나요
+- Bearer 인증 방법
+- 인증 키 발급

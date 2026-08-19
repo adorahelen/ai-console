@@ -1,0 +1,31 @@
+[Unit]
+Description=ai-console Agent Service
+# MariaDB는 대화 로깅용 옵션 — [database] use_db_mode = False면 아래 두 줄을 지운다
+After=network-online.target mariadb.service
+Requires=mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 설치한 계정·경로에 맞게 수정한다
+User=agent
+Group=agent
+
+# qa_llm.py가 있는 디렉터리 (git clone 위치)
+WorkingDirectory=/opt/ai-console
+
+# venv 절대경로 python으로 실행 (install.sh가 만든 .venv)
+ExecStart=/opt/ai-console/.venv/bin/python /opt/ai-console/qa_llm.py
+
+Restart=always
+RestartSec=3
+
+# 로그는 journald로 수집
+StandardOutput=journal
+StandardError=journal
+
+# (선택) 보안 기본값
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
